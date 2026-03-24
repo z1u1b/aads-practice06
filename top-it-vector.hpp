@@ -1,6 +1,7 @@
 #ifndef TOP_IT_VECTOR
 #define TOP_IT_VECTOR
 #include <cstddef>
+#include <iomanip>
 namespace topit
 {
   template < class T >
@@ -33,20 +34,34 @@ namespace topit
   };
 }
 template < class T >
-T& topit::Vector<T>::at(size_t id)
+T& topit::Vector< T >::operator[](size_t id) noexcept
 {
-  if (id<getSize()) {
-    return data_[id];
-  }
-  throw std::range_error("bad id");
+  const Vector<T>* cthis=this;
+
+  return const_cast<T&>((*cthis)[id]);
 }
 template < class T >
-const T& topit::Vector<T>::at(size_t id) const
+const T& topit::Vector< T >::operator[](size_t id) const noexcept
 {
-  if (id<getSize()) {
-    return data_[id];
+  return data_[id];
+}
+template < class T >
+T& topit::Vector< T >::at(size_t id)
+{
+  const Vector< T >* cthis = this;
+  return const_cast< T& >(cthis->at(id));
+  // if (id < getSize()) {
+  //   return data_[id];
+  // }
+  // throw std::range_error("bad id");
+}
+template < class T >
+const T& topit::Vector< T >::at(size_t id) const
+{
+  if (id < getSize()) {
+    return (*this)[id];
   }
-  throw std::range_error("bad id");
+  throw std::out_of_range("bad id");
 }
 template < class T >
 bool topit::Vector< T >::isEmpty() const noexcept
