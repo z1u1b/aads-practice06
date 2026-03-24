@@ -1,3 +1,4 @@
-main.o
+*.o
 main
-main.d
+*.d
+*.swp
