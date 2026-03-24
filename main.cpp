@@ -3,7 +3,7 @@
 #include <iostream>
 bool testEmptyVector()
 {
-  topit::Vector<int> v;
+  topit::Vector< int > v;
   return v.isEmpty();
 }
 int main()
@@ -18,6 +18,6 @@ int main()
     std::cout << tests[i].first << ": " << res << "\n";
     pass = pass && res;
   }
-  
+
   std::cout << "RESULT: " << pass << '\n';
 }

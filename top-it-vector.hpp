@@ -10,16 +10,15 @@ namespace topit
     Vector();
     Vector(const Vector&);
     Vector(Vector&&);
-    Vector&  operator=(const Vector&);
-    Vector&  operator=(Vector&&);
-
+    Vector& operator=(const Vector&);
+    Vector& operator=(Vector&&);
 
     bool isEmpty() const noexcept;
     size_t getSize() const noexcept;
     size_t getCapacity() const noexcept;
     void pushBack(const T& v);
     void popBack();
-    void insert(size_t i,const T& v);
+    void insert(size_t i, const T& v);
     void erase(size_t i);
 
   private:
@@ -45,33 +44,32 @@ size_t topit::Vector< T >::getCapacity() const noexcept
 template < class T >
 void topit::Vector< T >::pushBack(const T& v)
 {
-  if (size_==capacity_) {
-    capacity_*=2;
-    size_t newCapacity=capacity_ ? 1 : capacity_*2;
-    T* newData=new T[newCapacity];
+  if (size_ == capacity_) {
+    capacity_ *= 2;
+    size_t newCapacity = capacity_ ? 1 : capacity_ * 2;
+    T* newData = new T[newCapacity];
 
-    for (size_t i=0;i<size_;++i) {
-      newData[i]=data_[i];
+    for (size_t i = 0; i < size_; ++i) {
+      newData[i] = data_[i];
     }
 
     delete[] data_;
-    data_=newData;
-    capacity_=newCapacity;
+    data_ = newData;
+    capacity_ = newCapacity;
   }
-  data_[size_++]=v;
+  data_[size_++] = v;
 }
 template < class T >
 void topit::Vector< T >::popBack()
 {
   if (size_ > 0) {
-    data_[size_ - 1].~T();
     size_--;
   }
 }
 template < class T >
 topit::Vector< T >::~Vector()
 {
-  delete [] data_;
+  delete[] data_;
 }
 template < class T >
 topit::Vector< T >::Vector():
