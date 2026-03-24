@@ -66,7 +66,11 @@ bool testCopyConstructorForNonEmpty()
   topit::Vector< int > v;
   v.pushBack(1);
   topit::Vector< int > yav = v;
-  return v == yav;
+  try {
+    return yav.at(0) == v.at(0) && yav.getSize() == v.getSize();
+  } catch (...) {
+    return false;
+  }
 }
 int main()
 {
