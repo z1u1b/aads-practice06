@@ -54,6 +54,20 @@ bool testElementOutOfBoundConstAccess()
     return false;
   }
 }
+
+bool testCopyConstructorForEmpty()
+{
+  topit::Vector< int > v;
+  topit::Vector< int > yav = v;
+  return v == yav;
+}
+bool testCopyConstructorForNonEmpty()
+{
+  topit::Vector< int > v;
+  v.pushBack(1);
+  topit::Vector< int > yav = v;
+  return v == yav;
+}
 int main()
 {
   using test_t = std::pair< const char*, bool (*)() >;
@@ -61,7 +75,10 @@ int main()
                     {"Inbound access", testElementInboundAccess},
                     {"Out of bound access", testElementOutOfBoundAccess},
                     {"Inbound access", testElementInboundConstAccess},
-                    {"Out of bound access", testElementOutOfBoundConstAccess}};
+                    {"Out of bound access", testElementOutOfBoundConstAccess},
+                    {"Copy constructor for empty", testCopyConstructorForEmpty},
+                    {"Copy constructor for non-empty", testCopyConstructorForNonEmpty}};
+
   const size_t count = sizeof(tests) / sizeof(test_t);
   std::cout << std::boolalpha;
   bool pass = true;

@@ -11,8 +11,8 @@ namespace topit
     Vector();
     Vector(const Vector&);
     Vector(Vector&&);
-    Vector& operator=(const Vector&);
-    Vector& operator=(Vector&&);
+    Vector< T >& operator=(const Vector< T >&);
+    Vector< T >& operator=(Vector< T >&&);
 
     bool isEmpty() const noexcept;
     size_t getSize() const noexcept;
@@ -32,13 +32,39 @@ namespace topit
     T* data_;
     size_t size_, capacity_;
   };
+  template < class T >
+  bool operator==(const Vector< T >& lhs, const Vector< T >& rhs);
+}
+template < class T >
+topit::Vector< T >::Vector(const Vector< T >& rhs):
+  data_(rhs.getSize() ? new T[rhs.getSize()] : nullptr),
+  size_(rhs.getSize()),
+  capacity_(rhs.getSize())
+{
+  for (size_t i = 0; i < rhs.getSize(); ++i) {
+    try {
+      data_[i] = rhs[i];
+    } catch (...) {
+      delete[] data_;
+      throw;
+    }
+  }
+}
+template < class T >
+bool topit::operator==(const Vector< T >& lhs, const Vector< T >& rhs)
+{
+
+  bool isEqual = lhs.getSize() == rhs.getSize();
+  for (size_t i = 0; (i < lhs.getSize()) && (isEqual = isEqual && lhs[i] == rhs[i]); ++i)
+    ;
+  return isEqual;
 }
 template < class T >
 T& topit::Vector< T >::operator[](size_t id) noexcept
 {
-  const Vector<T>* cthis=this;
+  const Vector< T >* cthis = this;
 
-  return const_cast<T&>((*cthis)[id]);
+  return const_cast< T& >((*cthis)[id]);
 }
 template < class T >
 const T& topit::Vector< T >::operator[](size_t id) const noexcept
