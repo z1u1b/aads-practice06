@@ -13,7 +13,7 @@ namespace topit
     Vector(Vector&&);
     Vector(size_t size, const T& init);
     Vector< T >& operator=(const Vector< T >&);
-    Vector< T >& operator=(Vector< T >&&);
+    Vector< T >& operator=(Vector< T >&&) noexcept;
 
     bool isEmpty() const noexcept;
     size_t getSize() const noexcept;
@@ -47,27 +47,36 @@ void topit::Vector< T >::swap(Vector< T >& rhs) noexcept
   std::swap(capacity_, rhs.capacity_);
 }
 template < class T >
-topit::Vector< T >& topit::Vector< T >::operator=(Vector< T >&& rhs)
-{
-  Vector< T > cpy(std::move(rhs));
-  swap(cpy);
-  return *this
-}
-template < class T >
 topit::Vector< T >& topit::Vector< T >::operator=(const Vector< T >& rhs)
 {
+  if (this == std::addressof(rhs)) {
+    return *this;
+  }
+
   Vector< T > cpy(rhs);
   swap(cpy);
   return *this;
 }
 
 template < class T >
-topit::Vector< T >::Vector(Vector<T>&& rhs):
+topit::Vector< T >& topit::Vector< T >::operator=(Vector< T >&& rhs) noexcept
+{
+  if (this == std::addressof(rhs)) {
+    return *this;
+  }
+
+  Vector< T > cpy(std::move(rhs));
+  swap(cpy);
+  return *this;
+}
+
+template < class T >
+topit::Vector< T >::Vector(Vector< T >&& rhs):
   data_(rhs.data_),
   size_(rhs.size_),
   capacity_(rhs.capacity_)
 {
-  rhs.data=nullptr;
+  rhs.data_ = nullptr;
 }
 template < class T >
 topit::Vector< T >::Vector(size_t size, const T& init):
@@ -125,10 +134,6 @@ T& topit::Vector< T >::at(size_t id)
 {
   const Vector< T >* cthis = this;
   return const_cast< T& >(cthis->at(id));
-  // if (id < getSize()) {
-  //   return data_[id];
-  // }
-  // throw std::range_error("bad id");
 }
 template < class T >
 const T& topit::Vector< T >::at(size_t id) const
@@ -157,8 +162,7 @@ template < class T >
 void topit::Vector< T >::pushBack(const T& v)
 {
   if (size_ == capacity_) {
-    capacity_ *= 2;
-    size_t newCapacity = capacity_ ? 1 : capacity_ * 2;
+    size_t newCapacity = capacity_ ? capacity_ * 2 : 1;
     T* newData = new T[newCapacity];
 
     for (size_t i = 0; i < size_; ++i) {
