@@ -1,7 +1,21 @@
 #ifndef TOP_IT_VECTOR
 #define TOP_IT_VECTOR
+#include "citer.hpp"
+#include "iter.hpp"
 #include <cstddef>
 #include <iomanip>
+// Классная работа
+// СТРОГАЯ ГАРАНТИЯ!!!
+// Тестирование для копирования и перемещения
+// insert (x2)
+// erase (x2)
+// + тесты
+// pushBack/popBack
+// Домашнее задание
+// СТРОГАЯ ГАРАНТИЯ! ! !!
+// Итераторы для вектора
+// Придумать несколько insert/erase с итераторами
+// По 3 штуки + тесты
 namespace topit
 {
   template < class T >
@@ -24,11 +38,16 @@ namespace topit
     T& at(size_t id);
     const T& at(size_t id) const;
     void swap(Vector< T >& rhs) noexcept;
+    VectIter< T > begin();
+    VectIter< T > end();
 
     void pushBack(const T& v);
     void popBack();
-    void insert(size_t i, const T& v);
-    void erase(size_t i);
+    VectIter< T > insert(CVectIter< T > pos, const T& v);
+    VectIter< T > insert(CVectIter< T > pos, VectIter< T > beg, VectIter< T > end);
+
+    void erase(CVectIter< T > pos);
+    void erase(VectIter< T > beg, VectIter< T > end);
 
   private:
     explicit Vector(size_t size);
@@ -37,6 +56,110 @@ namespace topit
   };
   template < class T >
   bool operator==(const Vector< T >& lhs, const Vector< T >& rhs);
+}
+template < class T >
+topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, const T& v)
+{
+  size_t index = pos - begin();
+  if (size_ == capacity_) {
+
+    size_t newCapacity = capacity_ ? capacity_ * 2 : 1;
+    T* newData = new T[newCapacity];
+
+    for (size_t i = 0; i < index; ++i) {
+      newData[i] = data_[i];
+    }
+    newData[index] = v;
+    for (size_t i = index; i < size_; ++i) {
+      newData[i + 1] = data_[i];
+    }
+
+    delete[] data_;
+    data_ = newData;
+    capacity_ = newCapacity;
+    size_++;
+  } else {
+    for (VectIter< T > it = end(); it > begin() + index; --it) {
+      *it = *(it - 1);
+    }
+  }
+  pos=begin() + index
+  *(pos) = v;
+  ++size_;
+  return pos;
+}
+
+template < class T >
+topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, VectIter< T > first, VectIter< T > last)
+{
+  size_t index = pos - begin();
+  size_t length = last - first;
+  if (size_ + length > capacity_) {
+
+    size_t newCapacity = capacity_ ? capacity_ * 2 : 1;
+
+    while (newCapacity < size_ + length) {
+      newCapacity *= 2;
+    }
+    T* newData = new T[newCapacity];
+    for (size_t i = 0; i < index; ++i) {
+      newData[i] = data_[i];
+    }
+    for (size_t i = 0; i < length; ++i) {
+      newData[index + i] = *(first + i);
+    }
+
+    for (size_t i = index ; i < size_; ++i) {
+      newData[i+ length] = data_[i];
+    }
+
+    delete[] data_;
+    data_ = newData;
+    capacity_ = newCapacity;
+  } else {
+    for (VectIter< T > it = end(); it > begin() + index + length; --it) {
+      *it = *(it - 1);
+    }
+    for (size_t i = 0; i < length; ++i) {
+      data_[i+index] = *(first + i);
+    }
+  }
+  size_ += length;
+  return begin() + index;
+}
+
+template < class T >
+void topit::Vector< T >::erase(CVectIter< T > pos)
+{
+
+  for (auto it=pos;it<end()-1;++it) {
+    *it=*(it+1);
+  }
+  size_--;
+  return begin() + (pos-begin());
+}
+
+template < class T >
+void topit::Vector< T >::erase(VectIter< T > first, VectIter< T > last)
+{
+  size_t index=first-begin();
+  size_t count=last-first;
+
+  for (size_t i=index;i<index+count;++i) {
+    data[i]=data[i+count];
+  }
+}
+
+template < class T >
+topit::VectIter< T > topit::Vector< T >::begin()
+{
+  return VectIter< T >(data_);
+}
+
+template < class T >
+topit::VectIter< T > topit::Vector< T >::end()
+{
+  return VectIter< T >(data_ + size_);
 }
 
 template < class T >
