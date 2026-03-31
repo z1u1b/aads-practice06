@@ -87,6 +87,12 @@ bool testCopyConstructorForNonEmpty()
   }
 }
 
+bool testInitializerList()
+{
+  topit::Vector< int > v = {1, 2};
+  return v.getSize() == 2 && (v[0] == 1) && (v[1] == 2);
+}
+
 int main()
 {
   using test_t = std::pair< const char*, bool (*)() >;
@@ -98,7 +104,8 @@ int main()
                     {"Push back", testPushback},
                     {"Pop back", testPopBack},
                     {"Copy constructor for empty", testCopyConstructorForEmpty},
-                    {"Copy constructor for non-empty", testCopyConstructorForNonEmpty}};
+                    {"Copy constructor for non-empty", testCopyConstructorForNonEmpty},
+                    {"Initializer list", testInitializerList}};
 
   const size_t count = sizeof(tests) / sizeof(test_t);
   std::cout << std::boolalpha;
