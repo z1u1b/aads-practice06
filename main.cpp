@@ -1,4 +1,5 @@
 #include "top-it-vector.hpp"
+#include <initializer_list>
 #include <iomanip>
 #include <iostream>
 bool testEmptyVector()
@@ -87,6 +88,12 @@ bool testCopyConstructorForNonEmpty()
   }
 }
 
+bool testInitializerList()
+{
+  topit::Vector< int > v{1, 2};
+  return v.getSize() == 2 && (v[0] == 1) && (v[1] == 2);
+}
+
 int main()
 {
   using test_t = std::pair< const char*, bool (*)() >;
@@ -98,18 +105,27 @@ int main()
                     {"Push back", testPushback},
                     {"Pop back", testPopBack},
                     {"Copy constructor for empty", testCopyConstructorForEmpty},
-                    {"Copy constructor for non-empty", testCopyConstructorForNonEmpty}};
+                    {"Copy constructor for non-empty", testCopyConstructorForNonEmpty},
+                    {"Initializer list", testInitializerList}};
 
-  const size_t count = sizeof(tests) / sizeof(test_t);
+  const size_t countTests = sizeof(tests) / sizeof(test_t);
   std::cout << std::boolalpha;
   bool pass = true;
-  for (size_t i = 0; i < count; ++i) {
+  size_t trueTests = 0;
+  for (size_t i = 0; i < countTests; ++i) {
     bool res = tests[i].second();
-    std::cout << tests[i].first << ": " << res << "\n";
+    if (!res) {
+      std::cout << tests[i].first << ": " << res << "\n";
+    } else {
+      trueTests++;
+    }
+
     pass = pass && res;
   }
 
   std::cout << "RESULT: " << pass << '\n';
+  std::cout << "Пройдено тестов: " << trueTests << "/" << countTests << '\n';
+
   // подсчет пройденных тестов
   // вывод только не пройденных тестов
   // std::cout<<__func__<<'\n'
