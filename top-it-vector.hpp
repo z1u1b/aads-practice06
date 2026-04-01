@@ -1,6 +1,7 @@
 #ifndef TOP_IT_VECTOR
 #define TOP_IT_VECTOR
 #include <cstddef>
+#include <initializer_list>
 #include <iomanip>
 namespace topit
 {
@@ -22,6 +23,11 @@ namespace topit
     void reserve(size_t);
     void shrinkToFit();
 
+    // void allocate();
+    T* allocate(size_t n);
+    void deallocate(T* ptr);
+    void destroy_range(T* ptr, size_t first, size_t last);
+
     T& operator[](size_t id) noexcept;
     const T& operator[](size_t id) const noexcept;
     T& at(size_t id);
@@ -29,13 +35,12 @@ namespace topit
     void swap(Vector< T >& rhs) noexcept;
 
     void pushBack(const T& v);
-    void pushBackCount(size_t k, const T& v) template < class IT >
-    template <class IT>
+    void pushBackCount(size_t k, const T& v);
+    template < class IT >
     void pushBackRange(IT a, size_t count);
-    void unsafePushBack(size_t k, const T& v)
+    void unsafePushBack(size_t k, const T& v);
 
-
-        void popBack();
+    void popBack();
     void insert(size_t i, const T& v);
     void erase(size_t i);
 
@@ -48,26 +53,46 @@ namespace topit
   bool operator==(const Vector< T >& lhs, const Vector< T >& rhs);
 }
 template < class T >
-template < class IT >
-void topit::Vector< T >::pushBackRange(IT a, size_t count)
-{}
-
-template < class T >
-void topit::Vector< T >::pushBackCount(size_t k, const T& v)
-{}
-
-template < class T >
-void topit::Vector< T >::unsafePushBack(size_t k, const T& v)
+T* topit::Vector< T >::allocate(size_t n)
 {
-  assert(size_ < capacity_);
+  return static_cast< T* >(::operator new(sizeof(T) * n));
 }
+template < class T >
+void topit::Vector< T >::deallocate(T* ptr)
+{
+  ::operator delete(ptr);
+}
+template < class T >
+void topit::Vector< T >::destroy_range(T* ptr, size_t first, size_t last)
+{
+  for (size_t j = first; j < last; ++j) {
+    ptr[j].~T();
+  }
+}
+
+// template < class T >
+// template < class IT >
+// void topit::Vector< T >::pushBackRange(IT a, size_t count)
+// {}
+
+// template < class T >
+// void topit::Vector< T >::pushBackCount(size_t k, const T& v)
+// {}
+
+// template < class T >
+// void topit::Vector< T >::unsafePushBack(size_t k, const T& v)
+// {
+//   assert(size_ < capacity_);
+// }
 template < class T >
 topit::Vector< T >::Vector(std::initializer_list< T > il):
   Vector(il.size())
 {
   size_t i = 0;
+
   for (auto it = il.begin(); it != il.end(); ++it) {
-    data_[i++] = *it;
+    new (data_ + i) T(*it);
+    i++;
   }
 }
 template < class T >
@@ -76,6 +101,14 @@ void topit::Vector< T >::swap(Vector< T >& rhs) noexcept
   std::swap(data_, rhs.data_);
   std::swap(size_, rhs.size_);
   std::swap(capacity_, rhs.capacity_);
+}
+template < class T >
+topit::Vector< T >::Vector(const Vector& rhs):
+  Vector(rhs.getSize())
+{
+  for (size_t i = 0; i < rhs.getSize(); ++i) {
+    new (data_ + i) T(rhs[i]);
+  }
 }
 template < class T >
 topit::Vector< T >& topit::Vector< T >::operator=(const Vector< T >& rhs)
@@ -111,34 +144,56 @@ topit::Vector< T >::Vector(Vector< T >&& rhs):
 }
 template < class T >
 topit::Vector< T >::Vector(size_t size, const T& init):
-  data_(size ? new T[size] : nullptr),
+
   size_(size),
   capacity_(size)
 {
-  for (size_t i = 0; i < size; ++i) {
-    data_[i] = init;
+  data_ = allocate(size_);
+  size_t i = 0;
+  try {
+    for (; i < size_; ++i) {
+      new (data_ + i) T(init);
+    }
+  } catch (...) {
+    for (size_t j = 0; j < i; ++j) {
+      data_[j].~T();
+    }
+    throw;
   }
 }
 
 template < class T >
 topit::Vector< T >::Vector(size_t size):
-  data_(size ? new T[size] : nullptr),
+  data_(nullptr),
   size_(size),
   capacity_(size)
-{}
-template < class T >
-topit::Vector< T >::Vector(const Vector< T >& rhs):
-  Vector(rhs.getSize())
 {
-  for (size_t i = 0; i < rhs.getSize(); ++i) {
-    try {
-      data_[i] = rhs[i];
-    } catch (...) {
-      delete[] data_;
-      throw;
+  data_ = allocate(size_);
+  size_t i = 0;
+  try {
+    for (; i < size_; ++i) {
+      new (data_ + i) T();
     }
+  } catch (...) {
+    for (size_t j = 0; j < i; ++j) {
+      data_[j].~T();
+    }
+    throw;
   }
 }
+// template < class T >
+// topit::Vector< T >::Vector(const Vector< T >& rhs):
+//   Vector(rhs.getSize())
+// {
+//   for (size_t i = 0; i < rhs.getSize(); ++i) {
+//     try {
+//       data_[i] = rhs[i];
+//     } catch (...) {
+//       delete[] data_;
+//       throw;
+//     }
+//   }
+// }
 template < class T >
 bool topit::operator==(const Vector< T >& lhs, const Vector< T >& rhs)
 {
@@ -194,17 +249,25 @@ void topit::Vector< T >::pushBack(const T& v)
 {
   if (size_ == capacity_) {
     size_t newCapacity = capacity_ ? capacity_ * 2 : 1;
-    T* newData = new T[newCapacity];
-
-    for (size_t i = 0; i < size_; ++i) {
-      newData[i] = data_[i];
+    T* newData = allocate(size_);
+    size_t i = 0;
+    try {
+      for (; i < size_; ++i) {
+        new (newData + i) T(data_[i]);
+      }
+    } catch (...) {
+      for (size_t j = 0; j < i; ++j) {
+        newData[j].~T();
+      }
+      throw;
     }
 
-    delete[] data_;
+    destroy_range(data_, 0, size_);
     data_ = newData;
     capacity_ = newCapacity;
   }
-  data_[size_++] = v;
+  new (data_ + size_) T(v);
+  ++size_;
 }
 template < class T >
 void topit::Vector< T >::popBack()
@@ -216,7 +279,8 @@ void topit::Vector< T >::popBack()
 template < class T >
 topit::Vector< T >::~Vector()
 {
-  delete[] data_;
+  destroy_range(data_, 0, size_);
+  deallocate(data_);
 }
 template < class T >
 topit::Vector< T >::Vector():
