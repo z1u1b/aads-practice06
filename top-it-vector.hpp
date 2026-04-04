@@ -2,9 +2,12 @@
 #define TOP_IT_VECTOR
 #include "citer.hpp"
 #include "iter.hpp"
+#include <cassert>
 #include <cstddef>
 #include <initializer_list>
 #include <iomanip>
+#include <memory>
+#include <stdexcept>
 // Классная работа
 // СТРОГАЯ ГАРАНТИЯ!!!
 // Тестирование для копирования и перемещения
@@ -25,7 +28,7 @@ namespace topit
     ~Vector();
     Vector();
     Vector(const Vector&);
-    Vector(Vector&&);
+    Vector(Vector&&) noexcept;
     explicit Vector(std::initializer_list< T > il);
     explicit Vector(size_t size, const T& init);
     Vector< T >& operator=(const Vector< T >&);
@@ -34,10 +37,9 @@ namespace topit
     bool isEmpty() const noexcept;
     size_t getSize() const noexcept;
     size_t getCapacity() const noexcept;
+
     void reserve(size_t);
     void shrinkToFit();
-
-    // void allocate();
     T* allocate(size_t n);
     void deallocate(T* ptr);
     void destroy_range(T* ptr, size_t first, size_t last);
@@ -54,159 +56,70 @@ namespace topit
     void pushBackCount(size_t k, const T& v);
     template < class IT >
     void pushBackRange(IT a, size_t count);
-    void unsafePushBack(size_t k, const T& v);
+    void unsafePushBack(const T& v);
 
     void popBack();
+
+    void insert(size_t i, const T& v);
+    void insert(size_t pos, const Vector< T >& v, size_t beg, size_t end);
+
+    void erase(size_t i);
+    void erase(size_t beg, size_t end);
+
     VectIter< T > insert(CVectIter< T > pos, const T& v);
-    VectIter< T > insert(CVectIter< T > pos, VectIter< T > beg, VectIter< T > end);
+    VectIter< T > insert(CVectIter< T > pos, size_t count, const T& v);
+    VectIter< T > insert(CVectIter< T > pos, VectIter< T > first, VectIter< T > last);
 
     void erase(CVectIter< T > pos);
-    void erase(VectIter< T > beg, VectIter< T > end);
+    void erase(CVectIter< T > pos, size_t count);
+    void erase(VectIter< T > first, VectIter< T > last);
 
   private:
     explicit Vector(size_t size);
+    size_t calcCap(size_t curr, size_t needed);
     T* data_;
     size_t size_, capacity_;
   };
   template < class T >
   bool operator==(const Vector< T >& lhs, const Vector< T >& rhs);
 }
+
+// --- Конструкторы и деструктор (в порядке объявления) ---
+
 template < class T >
-topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, const T& v)
+topit::Vector< T >::~Vector()
 {
-  size_t index = pos - begin();
-  if (size_ == capacity_) {
-
-    size_t newCapacity = capacity_ ? capacity_ * 2 : 1;
-    T* newData = new T[newCapacity];
-
-    for (size_t i = 0; i < index; ++i) {
-      newData[i] = data_[i];
-    }
-    newData[index] = v;
-    for (size_t i = index; i < size_; ++i) {
-      newData[i + 1] = data_[i];
-    }
-
-    delete[] data_;
-    data_ = newData;
-    capacity_ = newCapacity;
-    size_++;
-  } else {
-    for (VectIter< T > it = end(); it > begin() + index; --it) {
-      *it = *(it - 1);
-    }
-  }
-  pos=begin() + index
-  *(pos) = v;
-  ++size_;
-  return pos;
+  destroy_range(data_, 0, size_);
+  deallocate(data_);
 }
 
 template < class T >
-topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, VectIter< T > first, VectIter< T > last)
-{
-  size_t index = pos - begin();
-  size_t length = last - first;
-  if (size_ + length > capacity_) {
-
-    size_t newCapacity = capacity_ ? capacity_ * 2 : 1;
-
-    while (newCapacity < size_ + length) {
-      newCapacity *= 2;
-    }
-    T* newData = new T[newCapacity];
-    for (size_t i = 0; i < index; ++i) {
-      newData[i] = data_[i];
-    }
-    for (size_t i = 0; i < length; ++i) {
-      newData[index + i] = *(first + i);
-    }
-
-    for (size_t i = index ; i < size_; ++i) {
-      newData[i+ length] = data_[i];
-    }
-
-    delete[] data_;
-    data_ = newData;
-    capacity_ = newCapacity;
-  } else {
-    for (VectIter< T > it = end(); it > begin() + index + length; --it) {
-      *it = *(it - 1);
-    }
-    for (size_t i = 0; i < length; ++i) {
-      data_[i+index] = *(first + i);
-    }
-  }
-  size_ += length;
-  return begin() + index;
-}
+topit::Vector< T >::Vector():
+  data_(nullptr),
+  size_(0),
+  capacity_(0)
+{}
 
 template < class T >
-void topit::Vector< T >::erase(CVectIter< T > pos)
+topit::Vector< T >::Vector(const Vector& rhs):
+  Vector(rhs.getSize())
 {
-
-  for (auto it=pos;it<end()-1;++it) {
-    *it=*(it+1);
-  }
-  size_--;
-  return begin() + (pos-begin());
-}
-
-template < class T >
-void topit::Vector< T >::erase(VectIter< T > first, VectIter< T > last)
-{
-  size_t index=first-begin();
-  size_t count=last-first;
-
-  for (size_t i=index;i<index+count;++i) {
-    data[i]=data[i+count];
+  for (size_t i = 0; i < rhs.getSize(); ++i) {
+    new (data_ + i) T(rhs[i]);
   }
 }
 
 template < class T >
-topit::VectIter< T > topit::Vector< T >::begin()
+topit::Vector< T >::Vector(Vector< T >&& rhs) noexcept:
+  data_(rhs.data_),
+  size_(rhs.size_),
+  capacity_(rhs.capacity_)
 {
-  return VectIter< T >(data_);
+  rhs.data_ = nullptr;
+  rhs.size_ = 0;
+  rhs.capacity_ = 0;
 }
 
-template < class T >
-topit::VectIter< T > topit::Vector< T >::end()
-{
-  return VectIter< T >(data_ + size_);
-}
-template < class T >
-T* topit::Vector< T >::allocate(size_t n)
-{
-  return static_cast< T* >(::operator new(sizeof(T) * n));
-}
-template < class T >
-void topit::Vector< T >::deallocate(T* ptr)
-{
-  ::operator delete(ptr);
-}
-template < class T >
-void topit::Vector< T >::destroy_range(T* ptr, size_t first, size_t last)
-{
-  for (size_t j = first; j < last; ++j) {
-    ptr[j].~T();
-  }
-}
-
-// template < class T >
-// template < class IT >
-// void topit::Vector< T >::pushBackRange(IT a, size_t count)
-// {}
-
-// template < class T >
-// void topit::Vector< T >::pushBackCount(size_t k, const T& v)
-// {}
-
-// template < class T >
-// void topit::Vector< T >::unsafePushBack(size_t k, const T& v)
-// {
-//   assert(size_ < capacity_);
-// }
 template < class T >
 topit::Vector< T >::Vector(std::initializer_list< T > il):
   Vector(il.size())
@@ -218,21 +131,36 @@ topit::Vector< T >::Vector(std::initializer_list< T > il):
     i++;
   }
 }
+
 template < class T >
-void topit::Vector< T >::swap(Vector< T >& rhs) noexcept
+topit::Vector< T >::Vector(size_t size, const T& init):
+
+  size_(size),
+  capacity_(size)
 {
-  std::swap(data_, rhs.data_);
-  std::swap(size_, rhs.size_);
-  std::swap(capacity_, rhs.capacity_);
-}
-template < class T >
-topit::Vector< T >::Vector(const Vector& rhs):
-  Vector(rhs.getSize())
-{
-  for (size_t i = 0; i < rhs.getSize(); ++i) {
-    new (data_ + i) T(rhs[i]);
+  data_ = allocate(size_);
+  size_t i = 0;
+  try {
+    for (; i < size_; ++i) {
+      new (data_ + i) T(init);
+    }
+  } catch (...) {
+    for (size_t j = 0; j < i; ++j) {
+      data_[j].~T();
+    }
+    throw;
   }
 }
+
+template < class T >
+topit::Vector< T >::Vector(size_t size):
+  data_(size ? allocate(size) : nullptr),
+  size_(size),
+  capacity_(size)
+{}
+
+// --- Операторы присваивания ---
+
 template < class T >
 topit::Vector< T >& topit::Vector< T >::operator=(const Vector< T >& rhs)
 {
@@ -257,122 +185,35 @@ topit::Vector< T >& topit::Vector< T >::operator=(Vector< T >&& rhs) noexcept
   return *this;
 }
 
-template < class T >
-topit::Vector< T >::Vector(Vector< T >&& rhs):
-  data_(rhs.data_),
-  size_(rhs.size_),
-  capacity_(rhs.capacity_)
-{
-  rhs.data_ = nullptr;
-}
-template < class T >
-topit::Vector< T >::Vector(size_t size, const T& init):
+// --- Геттеры состояния ---
 
-  size_(size),
-  capacity_(size)
-{
-  data_ = allocate(size_);
-  size_t i = 0;
-  try {
-    for (; i < size_; ++i) {
-      new (data_ + i) T(init);
-    }
-  } catch (...) {
-    for (size_t j = 0; j < i; ++j) {
-      data_[j].~T();
-    }
-    throw;
-  }
-}
-
-template < class T >
-topit::Vector< T >::Vector(size_t size):
-  data_(nullptr),
-  size_(size),
-  capacity_(size)
-{
-  data_ = allocate(size_);
-  size_t i = 0;
-  try {
-    for (; i < size_; ++i) {
-      new (data_ + i) T();
-    }
-  } catch (...) {
-    for (size_t j = 0; j < i; ++j) {
-      data_[j].~T();
-    }
-    throw;
-  }
-}
-// template < class T >
-// topit::Vector< T >::Vector(const Vector< T >& rhs):
-//   Vector(rhs.getSize())
-// {
-//   for (size_t i = 0; i < rhs.getSize(); ++i) {
-//     try {
-//       data_[i] = rhs[i];
-//     } catch (...) {
-//       delete[] data_;
-//       throw;
-//     }
-//   }
-// }
-template < class T >
-bool topit::operator==(const Vector< T >& lhs, const Vector< T >& rhs)
-{
-
-  bool isEqual = lhs.getSize() == rhs.getSize();
-  for (size_t i = 0; (i < lhs.getSize()) && (isEqual = isEqual && lhs[i] == rhs[i]); ++i)
-    ;
-  return isEqual;
-}
-template < class T >
-T& topit::Vector< T >::operator[](size_t id) noexcept
-{
-  const Vector< T >* cthis = this;
-
-  return const_cast< T& >((*cthis)[id]);
-}
-template < class T >
-const T& topit::Vector< T >::operator[](size_t id) const noexcept
-{
-  return data_[id];
-}
-template < class T >
-T& topit::Vector< T >::at(size_t id)
-{
-  const Vector< T >* cthis = this;
-  return const_cast< T& >(cthis->at(id));
-}
-template < class T >
-const T& topit::Vector< T >::at(size_t id) const
-{
-  if (id < getSize()) {
-    return (*this)[id];
-  }
-  throw std::out_of_range("bad id");
-}
 template < class T >
 bool topit::Vector< T >::isEmpty() const noexcept
 {
   return !size_;
 }
+
 template < class T >
 size_t topit::Vector< T >::getSize() const noexcept
 {
   return size_;
 }
+
 template < class T >
 size_t topit::Vector< T >::getCapacity() const noexcept
 {
   return capacity_;
 }
+
+// --- Управление памятью (внутренние) ---
+
 template < class T >
-void topit::Vector< T >::pushBack(const T& v)
+void topit::Vector< T >::reserve(size_t n)
 {
-  if (size_ == capacity_) {
-    size_t newCapacity = capacity_ ? capacity_ * 2 : 1;
-    T* newData = allocate(size_);
+  if (n > capacity_) {
+
+    T* newData = allocate(n);
+
     size_t i = 0;
     try {
       for (; i < size_; ++i) {
@@ -382,33 +223,362 @@ void topit::Vector< T >::pushBack(const T& v)
       for (size_t j = 0; j < i; ++j) {
         newData[j].~T();
       }
+      deallocate(newData);
       throw;
     }
 
     destroy_range(data_, 0, size_);
+    deallocate(data_);
+
     data_ = newData;
-    capacity_ = newCapacity;
+    capacity_ = n;
   }
+}
+
+template < class T >
+void topit::Vector< T >::shrinkToFit()
+{
+  if (size_ < capacity_) {
+    T* newData = allocate(size_);
+
+    size_t i = 0;
+    try {
+      for (; i < size_; ++i) {
+        new (newData + i) T(data_[i]);
+      }
+    } catch (...) {
+      for (size_t j = 0; j < i; ++j) {
+        newData[j].~T();
+      }
+      deallocate(newData);
+      throw;
+    }
+
+    destroy_range(data_, 0, size_);
+    deallocate(data_);
+
+    data_ = newData;
+    capacity_ = size_;
+  }
+}
+
+template < class T >
+T* topit::Vector< T >::allocate(size_t n)
+{
+  return static_cast< T* >(::operator new(sizeof(T) * n));
+}
+
+template < class T >
+void topit::Vector< T >::deallocate(T* ptr)
+{
+  ::operator delete(ptr);
+}
+
+template < class T >
+void topit::Vector< T >::destroy_range(T* ptr, size_t first, size_t last)
+{
+  for (size_t j = first; j < last; ++j) {
+    ptr[j].~T();
+  }
+}
+
+template < class T >
+size_t topit::Vector< T >::calcCap(size_t curr, size_t needed)
+{
+  if (curr == 0) {
+    return 1;
+  }
+  while (curr <= needed) {
+    curr *= 2;
+  }
+  return curr;
+}
+
+// --- Доступ к элементам ---
+
+template < class T >
+T& topit::Vector< T >::operator[](size_t id) noexcept
+{
+  const Vector< T >* cthis = this;
+
+  return const_cast< T& >((*cthis)[id]);
+}
+
+template < class T >
+const T& topit::Vector< T >::operator[](size_t id) const noexcept
+{
+  return data_[id];
+}
+
+template < class T >
+T& topit::Vector< T >::at(size_t id)
+{
+  const Vector< T >* cthis = this;
+  return const_cast< T& >(cthis->at(id));
+}
+
+template < class T >
+const T& topit::Vector< T >::at(size_t id) const
+{
+  if (id < getSize()) {
+    return (*this)[id];
+  }
+  throw std::out_of_range("bad id");
+}
+
+// --- Swap и итераторы ---
+
+template < class T >
+void topit::Vector< T >::swap(Vector< T >& rhs) noexcept
+{
+  std::swap(data_, rhs.data_);
+  std::swap(size_, rhs.size_);
+  std::swap(capacity_, rhs.capacity_);
+}
+
+template < class T >
+topit::VectIter< T > topit::Vector< T >::begin()
+{
+  return VectIter< T >(data_);
+}
+
+template < class T >
+topit::VectIter< T > topit::Vector< T >::end()
+{
+  return VectIter< T >(data_ + size_);
+}
+
+// --- Push/Pop операции ---
+
+template < class T >
+void topit::Vector< T >::pushBack(const T& v)
+{
+  if (size_ >= capacity_) {
+    Vector< T > tmp(*this);
+    tmp.reserve(calcCap(tmp.capacity_, size_ + 1));
+
+    tmp.unsafePushBack(v);
+    swap(tmp);
+  } else {
+    unsafePushBack(v);
+  }
+}
+
+template < class T >
+void topit::Vector< T >::pushBackCount(size_t count, const T& v)
+{
+  if (size_ + count >= capacity_) {
+    Vector< T > tmp(*this);
+    tmp.reserve(calcCap(tmp.capacity_, size_ + count));
+    for (size_t i = 0; i < count; ++i) {
+      tmp.unsafePushBack(v);
+    }
+
+    swap(tmp);
+  } else {
+    unsafePushBack(v);
+  }
+}
+
+template < class T >
+template < class IT >
+void topit::Vector< T >::pushBackRange(IT a, size_t count)
+{
+
+  if (size_ + count >= capacity_) {
+    Vector< T > tmp(*this);
+    tmp.reserve(calcCap(tmp.capacity_, size_ + count));
+
+    for (size_t i = 0; i < count; ++i) {
+      tmp.unsafePushBack(*(a + i));
+    }
+    swap(tmp);
+  } else {
+    for (size_t i = 0; i < count; ++i) {
+      unsafePushBack(*(a + i));
+    }
+  }
+}
+
+template < class T >
+void topit::Vector< T >::unsafePushBack(const T& v)
+{
+  assert(size_ < capacity_);
   new (data_ + size_) T(v);
   ++size_;
 }
+
 template < class T >
 void topit::Vector< T >::popBack()
 {
+
   if (size_ > 0) {
     size_--;
+    data_[size_].~T();
+  } else {
+    throw;
   }
 }
+
+// --- Insert операции ---
+
 template < class T >
-topit::Vector< T >::~Vector()
+void topit::Vector< T >::insert(size_t index, const T& v)
 {
-  destroy_range(data_, 0, size_);
-  deallocate(data_);
+  Vector< T > tmp;
+  tmp.reserve(size_ + 1);
+  size_t i = 0;
+  for (; i < index; ++i) {
+    new (tmp.data_ + i) T(data_[i]);
+  }
+  new (tmp.data_ + i) T(v);
+  ++i;
+  for (size_t j = index; j < size_; ++i, ++j) {
+    new (tmp.data_ + i) T(data_[j]);
+  }
+  tmp.size_ = size_ + 1;
+  swap(tmp);
 }
+
 template < class T >
-topit::Vector< T >::Vector():
-  data_(nullptr),
-  size_(0),
-  capacity_(0)
-{}
+void topit::Vector< T >::insert(size_t pos, const Vector< T >& v, size_t beg, size_t end)
+{
+  size_t count = end - beg;
+  Vector< T > tmp;
+  tmp.reserve(size_ + count);
+  size_t i = 0;
+  for (; i < pos; ++i) {
+    new (tmp.data_ + i) T(data_[i]);
+  }
+  for (size_t j = beg; j < end; ++j, ++i) {
+    new (tmp.data_ + i) T(v.data_[j]);
+  }
+
+  for (size_t j = pos; j < size_; ++i, ++j) {
+    new (tmp.data_ + i) T(data_[j]);
+  }
+  tmp.size_ = size_ + count;
+  swap(tmp);
+}
+
+// --- Erase операции (индексные) ---
+
+template < class T >
+void topit::Vector< T >::erase(size_t index)
+{
+  for (size_t i = index; i < size_ - 1; ++i) {
+    data_[i].~T();
+    new (data_ + i) T(std::move(data_[i + 1]));
+  }
+  data_[size_ - 1].~T();
+  --size_;
+}
+
+template < class T >
+void topit::Vector< T >::erase(size_t beg, size_t end)
+{
+  size_t count = end - beg;
+  for (size_t i = end; i < size_; ++i) {
+    data_[i - count].~T();
+    new (data_ + i - count) T(std::move(data_[i]));
+  }
+  for (size_t i = size_ - count; i < size_; ++i) {
+    data_[i].~T();
+  }
+  size_ -= count;
+}
+
+// --- Insert операции (итераторные) ---
+
+template < class T >
+topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, const T& v)
+{
+  size_t index = pos - begin();
+  insert(index, v);
+  return begin() + index;
+}
+
+template < class T >
+topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, size_t count, const T& v)
+{
+  size_t index = pos - begin();
+  Vector< T > tmp;
+  tmp.reserve(size_ + count);
+  size_t i = 0;
+  for (; i < index; ++i) {
+    new (tmp.data_ + i) T(data_[i]);
+  }
+  for (size_t j = 0; j < count; ++j, ++i) {
+    new (tmp.data_ + i) T(v);
+  }
+
+  for (size_t j = index; j < size_; ++i, ++j) {
+    new (tmp.data_ + i) T(data_[j]);
+  }
+  tmp.size_ = size_ + count;
+  swap(tmp);
+}
+
+template < class T >
+topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, VectIter< T > first, VectIter< T > last)
+{
+  size_t index = pos - begin();
+  size_t count = last - first;
+
+  Vector< T > tmp;
+  tmp.reserve(size_ + count);
+  size_t i = 0;
+
+  for (; i < index; ++i) {
+    new (tmp.data_ + i) T(data_[i]);
+  }
+  for (auto it = first; it < last; ++it, ++i) {
+    new (tmp.data_ + i) T(*it);
+  }
+  for (size_t j = index; j < size_; ++i, ++j) {
+    new (tmp.data_ + i) T(data_[j]);
+  }
+
+  tmp.size_ = size_ + count;
+  swap(tmp);
+  return begin() + index;
+}
+
+// --- Erase операции (итераторные) ---
+
+template < class T >
+void topit::Vector< T >::erase(CVectIter< T > pos)
+{
+  size_t index = pos - begin();
+  erase(index);
+}
+
+template < class T >
+void topit::Vector< T >::erase(CVectIter< T > pos, size_t count)
+{
+  size_t b = pos - begin();
+  size_t e = b + count;
+  erase(b, e);
+}
+
+template < class T >
+void topit::Vector< T >::erase(VectIter< T > first, VectIter< T > last)
+{
+  size_t b = first - begin();
+  size_t e = last - begin();
+  erase(b, e);
+}
+
+// --- Оператор сравнения ---
+
+template < class T >
+bool topit::operator==(const Vector< T >& lhs, const Vector< T >& rhs)
+{
+
+  bool isEqual = lhs.getSize() == rhs.getSize();
+  for (size_t i = 0; (i < lhs.getSize()) && (isEqual = isEqual && lhs[i] == rhs[i]); ++i)
+    ;
+  return isEqual;
+}
+
 #endif
