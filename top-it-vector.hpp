@@ -265,6 +265,9 @@ void topit::Vector< T >::shrinkToFit()
 template < class T >
 T* topit::Vector< T >::allocate(size_t n)
 {
+  if (n > std::numeric_limits< size_t >::max() / sizeof(T)) {
+    throw std::bad_alloc();
+  }
   return static_cast< T* >(::operator new(sizeof(T) * n));
 }
 
@@ -289,6 +292,9 @@ size_t topit::Vector< T >::calcCap(size_t curr, size_t needed)
     return 1;
   }
   while (curr <= needed) {
+    if (curr > std::numeric_limits< size_t >::max() / 2) {
+      throw std::overflow_error("overflow empty capacity");
+    }
     curr *= 2;
   }
   return curr;
@@ -411,13 +417,12 @@ void topit::Vector< T >::unsafePushBack(const T& v)
 template < class T >
 void topit::Vector< T >::popBack()
 {
-
-  if (size_ > 0) {
-    size_--;
-    data_[size_].~T();
-  } else {
-    throw;
+  if (size_ == 0) {
+    throw std::out_of_range("popBack to empty vector");
   }
+
+  size_--;
+  data_[size_].~T();
 }
 
 // --- Insert операции ---
@@ -428,16 +433,25 @@ void topit::Vector< T >::insert(size_t index, const T& v)
   Vector< T > tmp;
   tmp.reserve(size_ + 1);
   size_t i = 0;
-  for (; i < index; ++i) {
-    new (tmp.data_ + i) T(data_[i]);
+  size_t made = 0;
+  try {
+    for (; i < index; ++i) {
+      new (tmp.data_ + i) T(data_[i]);
+      ++made;
+    }
+    new (tmp.data_ + i) T(v);
+    ++i;
+    ++made;
+    for (size_t j = index; j < size_; ++i, ++j) {
+      new (tmp.data_ + i) T(data_[j]);
+      ++made;
+    }
+    tmp.size_ = size_ + 1;
+    swap(tmp);
+  } catch (...) {
+    destroy_range(tmp.data_, 0, made);
+    throw;
   }
-  new (tmp.data_ + i) T(v);
-  ++i;
-  for (size_t j = index; j < size_; ++i, ++j) {
-    new (tmp.data_ + i) T(data_[j]);
-  }
-  tmp.size_ = size_ + 1;
-  swap(tmp);
 }
 
 template < class T >
@@ -447,18 +461,27 @@ void topit::Vector< T >::insert(size_t pos, const Vector< T >& v, size_t beg, si
   Vector< T > tmp;
   tmp.reserve(size_ + count);
   size_t i = 0;
-  for (; i < pos; ++i) {
-    new (tmp.data_ + i) T(data_[i]);
-  }
-  for (size_t j = beg; j < end; ++j, ++i) {
-    new (tmp.data_ + i) T(v.data_[j]);
-  }
+  size_t made = 0;
+  try {
+    for (; i < pos; ++i) {
+      new (tmp.data_ + i) T(data_[i]);
+      ++made;
+    }
+    for (size_t j = beg; j < end; ++j, ++i) {
+      new (tmp.data_ + i) T(v.data_[j]);
+      ++made;
+    }
 
-  for (size_t j = pos; j < size_; ++i, ++j) {
-    new (tmp.data_ + i) T(data_[j]);
+    for (size_t j = pos; j < size_; ++i, ++j) {
+      new (tmp.data_ + i) T(data_[j]);
+      ++made;
+    }
+    tmp.size_ = size_ + count;
+    swap(tmp);
+  } catch (...) {
+    destroy_range(tmp.data_, 0, made);
+    throw;
   }
-  tmp.size_ = size_ + count;
-  swap(tmp);
 }
 
 // --- Erase операции (индексные) ---
@@ -482,9 +505,11 @@ void topit::Vector< T >::erase(size_t beg, size_t end)
     data_[i - count].~T();
     new (data_ + i - count) T(std::move(data_[i]));
   }
-  for (size_t i = size_ - count; i < size_; ++i) {
-    data_[i].~T();
-  }
+  // for (size_t i = size_ - count; i < size_; ++i) {
+  //   data_[i].~T();
+  // }
+  destroy_range(data_, size_ - count, size_);
+
   size_ -= count;
 }
 
@@ -505,18 +530,28 @@ topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, size_t count
   Vector< T > tmp;
   tmp.reserve(size_ + count);
   size_t i = 0;
-  for (; i < index; ++i) {
-    new (tmp.data_ + i) T(data_[i]);
-  }
-  for (size_t j = 0; j < count; ++j, ++i) {
-    new (tmp.data_ + i) T(v);
-  }
+  size_t made = 0;
+  try {
+    for (; i < index; ++i) {
+      new (tmp.data_ + i) T(data_[i]);
+      ++made;
+    }
+    for (size_t j = 0; j < count; ++j, ++i) {
+      new (tmp.data_ + i) T(v);
+      ++made;
+    }
 
-  for (size_t j = index; j < size_; ++i, ++j) {
-    new (tmp.data_ + i) T(data_[j]);
+    for (size_t j = index; j < size_; ++i, ++j) {
+      new (tmp.data_ + i) T(data_[j]);
+      ++made;
+    }
+    tmp.size_ = size_ + count;
+    swap(tmp);
+    return begin() + index;
+  } catch (...) {
+    destroy_range(tmp.data_, 0, made);
+    throw;
   }
-  tmp.size_ = size_ + count;
-  swap(tmp);
 }
 
 template < class T >
@@ -528,20 +563,28 @@ topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, VectIter< T 
   Vector< T > tmp;
   tmp.reserve(size_ + count);
   size_t i = 0;
+  size_t made = 0;
+  try {
+    for (; i < index; ++i) {
+      new (tmp.data_ + i) T(data_[i]);
+      ++made;
+    }
+    for (auto it = first; it < last; ++it, ++i) {
+      new (tmp.data_ + i) T(*it);
+      ++made;
+    }
+    for (size_t j = index; j < size_; ++i, ++j) {
+      new (tmp.data_ + i) T(data_[j]);
+      ++made;
+    }
 
-  for (; i < index; ++i) {
-    new (tmp.data_ + i) T(data_[i]);
+    tmp.size_ = size_ + count;
+    swap(tmp);
+    return begin() + index;
+  } catch (...) {
+    destroy_range(tmp.data_, 0, made);
+    throw;
   }
-  for (auto it = first; it < last; ++it, ++i) {
-    new (tmp.data_ + i) T(*it);
-  }
-  for (size_t j = index; j < size_; ++i, ++j) {
-    new (tmp.data_ + i) T(data_[j]);
-  }
-
-  tmp.size_ = size_ + count;
-  swap(tmp);
-  return begin() + index;
 }
 
 // --- Erase операции (итераторные) ---

@@ -93,6 +93,56 @@ bool testInitializerList()
   topit::Vector< int > v{1, 2};
   return v.getSize() == 2 && (v[0] == 1) && (v[1] == 2);
 }
+//memory management
+bool reserveTest();
+bool shrinkTest();
+bool reserveFailTest();
+bool shrinkFailTest();
+bool allocateTest();
+bool deallocateTest();
+bool destroyTest();
+bool calcCapTest();
+
+//iterators
+bool beginTest();
+bool endTest();
+bool iteratorTraversalTest();
+bool constIteratorTest();
+bool iteratorArithmeticTest();
+bool iteratorComparisonTest();
+
+//push-operations
+bool pushBackCountTest();
+bool pushBackRangeTest();
+bool pushBackRangeIteratorTest();
+bool unsafePushBackTest();
+bool pushBackGrowTest();
+bool pushBackEmptyTest();
+
+//insert-operations
+bool insertElTest();
+bool insertAtBeginTest();
+bool insertAtEndTest();
+bool insertRangeTest();
+bool insertEmptyVectorTest();
+bool insertLargeCountTest();
+
+//erase-operations
+bool eraseIterTest();
+bool eraseIterCountTest();
+bool eraseIterRangeTest();
+bool eraseIterBeginEndTest();
+
+//move-constructor and assigments
+bool testMoveConstructor();
+bool testMoveAssignment();
+bool testSelfAssignment();
+bool testCopyAssignment();
+
+//swap
+bool testSwap();
+bool testSwapEmpty();
+bool testSwapWithSelf();
 
 int main()
 {
