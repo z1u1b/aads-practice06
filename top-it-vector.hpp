@@ -40,9 +40,6 @@ namespace topit
 
     void reserve(size_t);
     void shrinkToFit();
-    T* allocate(size_t n);
-    void deallocate(T* ptr);
-    void destroy_range(T* ptr, size_t first, size_t last);
 
     T& operator[](size_t id) noexcept;
     const T& operator[](size_t id) const noexcept;
@@ -51,6 +48,9 @@ namespace topit
     void swap(Vector< T >& rhs) noexcept;
     VectIter< T > begin();
     VectIter< T > end();
+
+    CVectIter< T > cbegin() const;
+    CVectIter< T > cend() const;
 
     void pushBack(const T& v);
     void pushBackCount(size_t k, const T& v);
@@ -72,11 +72,14 @@ namespace topit
 
     void erase(CVectIter< T > pos);
     void erase(CVectIter< T > pos, size_t count);
-    void erase(VectIter< T > first, VectIter< T > last);
+    void erase(CVectIter< T > first, CVectIter< T > last);
 
   private:
     explicit Vector(size_t size);
     size_t calcCap(size_t curr, size_t needed);
+    T* allocate(size_t n);
+    void deallocate(T* ptr);
+    void destroy_range(T* ptr, size_t first, size_t last);
     T* data_;
     size_t size_, capacity_;
   };
@@ -220,9 +223,7 @@ void topit::Vector< T >::reserve(size_t n)
         new (newData + i) T(data_[i]);
       }
     } catch (...) {
-      for (size_t j = 0; j < i; ++j) {
-        newData[j].~T();
-      }
+      destroy_range(newData, 0, size_);
       deallocate(newData);
       throw;
     }
@@ -232,6 +233,8 @@ void topit::Vector< T >::reserve(size_t n)
 
     data_ = newData;
     capacity_ = n;
+  } else {
+    return;
   }
 }
 
@@ -354,6 +357,17 @@ topit::VectIter< T > topit::Vector< T >::end()
   return VectIter< T >(data_ + size_);
 }
 
+template < class T >
+topit::CVectIter< T > topit::Vector< T >::cbegin() const
+{
+  return CVectIter< T >(data_);
+}
+template < class T >
+topit::CVectIter< T > topit::Vector< T >::cend() const
+{
+  return CVectIter< T >(data_ + size_);
+}
+
 // --- Push/Pop операции ---
 
 template < class T >
@@ -382,7 +396,9 @@ void topit::Vector< T >::pushBackCount(size_t count, const T& v)
 
     swap(tmp);
   } else {
-    unsafePushBack(v);
+    for (size_t i = 0; i < count; ++i) {
+      unsafePushBack(v);
+    }
   }
 }
 
@@ -518,7 +534,7 @@ void topit::Vector< T >::erase(size_t beg, size_t end)
 template < class T >
 topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, const T& v)
 {
-  size_t index = pos - begin();
+  size_t index = pos - cbegin();
   insert(index, v);
   return begin() + index;
 }
@@ -526,7 +542,7 @@ topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, const T& v)
 template < class T >
 topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, size_t count, const T& v)
 {
-  size_t index = pos - begin();
+  size_t index = pos - cbegin();
   Vector< T > tmp;
   tmp.reserve(size_ + count);
   size_t i = 0;
@@ -592,23 +608,23 @@ topit::VectIter< T > topit::Vector< T >::insert(CVectIter< T > pos, VectIter< T 
 template < class T >
 void topit::Vector< T >::erase(CVectIter< T > pos)
 {
-  size_t index = pos - begin();
+  size_t index = pos - cbegin();
   erase(index);
 }
 
 template < class T >
 void topit::Vector< T >::erase(CVectIter< T > pos, size_t count)
 {
-  size_t b = pos - begin();
+  size_t b = pos - cbegin();
   size_t e = b + count;
   erase(b, e);
 }
 
 template < class T >
-void topit::Vector< T >::erase(VectIter< T > first, VectIter< T > last)
+void topit::Vector< T >::erase(CVectIter< T > first, CVectIter< T > last)
 {
-  size_t b = first - begin();
-  size_t e = last - begin();
+  size_t b = first - cbegin();
+  size_t e = last - cbegin();
   erase(b, e);
 }
 

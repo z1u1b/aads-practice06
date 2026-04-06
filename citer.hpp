@@ -1,6 +1,6 @@
 #ifndef CITERATOR_HPP
 #define CITERATOR_HPP
-
+#include <cstddef>
 namespace topit
 {
   template < class T >
@@ -8,7 +8,7 @@ namespace topit
   template < class T >
   class CVectIter
   {
-    friend class topit::Vector< T >;
+    friend struct topit::Vector< T >;
     CVectIter() noexcept:
       ptr_(nullptr)
     {}
@@ -21,6 +21,8 @@ namespace topit
     CVectIter< T >& operator++();
     CVectIter< T > operator++(int);
     CVectIter< T > operator+(int);
+
+    size_t operator-(const CVectIter< T >&) const;
 
     bool operator!=(const CVectIter< T >&) const;
     bool operator==(const CVectIter< T >&) const;
@@ -53,6 +55,12 @@ namespace topit
   CVectIter< T > topit::CVectIter< T >::operator+(int n)
   {
     return CVectIter(ptr_ + n);
+  }
+
+  template < class T >
+  size_t topit::CVectIter< T >::operator-(const CVectIter< T >& other) const
+  {
+    return static_cast< size_t >(ptr_ - other.ptr_);
   }
   template < class T >
   bool topit::CVectIter< T >::operator!=(const CVectIter< T >& other) const

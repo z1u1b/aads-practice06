@@ -1,6 +1,6 @@
 #ifndef ITERATOR_HPP
 #define ITERATOR_HPP
-
+#include <cstddef>
 namespace topit
 {
   template < class T >
@@ -8,7 +8,7 @@ namespace topit
   template < class T >
   class VectIter
   {
-    friend class topit::Vector< T >;
+    friend struct topit::Vector< T >;
     VectIter() noexcept:
       ptr_(nullptr)
     {}
@@ -24,7 +24,7 @@ namespace topit
 
     VectIter< T >& operator--();
     VectIter< T > operator--(int);
-    VectIter< T > operator-(const VectIter< T >&);
+    size_t operator-(const VectIter< T >&) const;
     bool operator!=(const VectIter< T >&) const;
     bool operator==(const VectIter< T >&) const;
 
@@ -72,9 +72,9 @@ namespace topit
     return tmp;
   }
   template < class T >
-  VectIter< T > topit::VectIter< T >::operator-(const VectIter< T >& other)
+  size_t topit::VectIter< T >::operator-(const VectIter< T >& other) const
   {
-    return VectIter(ptr_ - other.ptr_);
+    return static_cast< size_t >(ptr_ - other.ptr_);
   }
   template < class T >
   bool topit::VectIter< T >::operator!=(const VectIter< T >& other) const
